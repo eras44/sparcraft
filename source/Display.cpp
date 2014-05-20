@@ -696,13 +696,31 @@ void Display::RenderUnit(const Unit & unit)
 		glVertex2i(xx,yy+healthBoxHeight);
 	glEnd();
 
+	//draw the unit Shield
+	if(unit.type().getRace()==BWAPI::Races::Protoss)
+	{
+		double	Shield = (double)unit.currentshield() / (double)unit.maxshield();
+				cw = (int)((x1-x0) * Shield);
+				xx = pos.x() - (x1-x0)/2;
+				yy = pos.y() - healthBoxHeight*2 - (y1-y0)/2 - 5;
+
+		glColor4f(0.1, 0.0, 0.368, 2);
+		glBegin(GL_QUADS);
+			glVertex2i(xx,yy);
+			glVertex2i(xx+cw,yy);
+			glVertex2i(xx+cw,yy+healthBoxHeight);
+			glVertex2i(xx,yy+healthBoxHeight);
+		glEnd();
+
+	}
+
 	// draw the unit energy box
 	if (unit.currentEnergy() > 0)
 	{
 		double	percEnergy = (double)unit.currentEnergy() / (double)Constants::Starting_Energy;
 		cw = (int)((x1-x0) * percEnergy);
 		xx = pos.x() - (x1-x0)/2;
-		yy = pos.y() - healthBoxHeight*2 - (y1-y0)/2 - 5;
+		yy = pos.y() - healthBoxHeight*3 - (y1-y0)/2 - 5;
 
 		glColor4f(0.0, 1.0, 0.0, 0.75);
 		glBegin(GL_QUADS);
