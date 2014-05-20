@@ -26,6 +26,7 @@ class Unit
     IDType              _playerID;				// the player who controls the unit
 	
 	HealthType          _currentHP;				// current HP of the unit
+	HealthType          _currentshield;
 	HealthType          _currentEnergy;
 
 	TimeType            _timeCanMove;			// time the unit can next move
@@ -44,7 +45,7 @@ public:
 	//Unit(BWAPI::Unit * unit, BWAPI::Game * game, const IDType & playerID, const TimeType & gameTime);
 	Unit(const BWAPI::UnitType unitType, const IDType & playerID, const Position & pos);
 	Unit(const BWAPI::UnitType unitType, const Position & pos, const IDType & unitID, const IDType & playerID, 
-		 const HealthType & hp, const HealthType & energy, const TimeType & tm, const TimeType & ta);
+		 const HealthType & hp,const HealthType & shield, const HealthType & energy, const TimeType & tm, const TimeType & ta, const TimeType & tc);
 
 	bool operator < (const Unit & rhs) const;
 
@@ -94,13 +95,16 @@ public:
 	 HealthType        damage()                    const;
 	 HealthType        healAmount()                const;
 	 HealthType	    maxHP()                     const;
+	 HealthType		maxshield()                 const;
 	 HealthType	    currentHP()                 const;
+	 HealthType     currentshield()             const;
 	 HealthType	    currentEnergy()             const;
 	 HealthType	    maxEnergy()                 const;
 	 HealthType	    healCost()                  const;
      HealthType        getArmor()                  const;
 	 float			    dpf()                       const;
 	void                    updateCurrentHP(const HealthType & newHP);
+	void					updateCurrentShield(const HealthType & newshield);
     const BWAPI::UnitSizeType getSize()                 const;
     const BWAPI::WeaponType getWeapon(BWAPI::UnitType target) const;
      HealthType        getDamageTo(const Unit & unit) const;

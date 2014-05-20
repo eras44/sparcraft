@@ -8,6 +8,7 @@ Unit::Unit()
     , _unitID               (255)
     , _playerID             (255)
     , _currentHP            (0)
+	, _currentshield        (0)
     , _currentEnergy        (0)
     , _timeCanMove          (0)
     , _timeCanAttack        (0)
@@ -19,14 +20,15 @@ Unit::Unit()
 
 // test constructor for setting all variables of a unit
 Unit::Unit(const BWAPI::UnitType unitType, const Position & pos, const IDType & unitID, const IDType & playerID, 
-           const HealthType & hp, const HealthType & energy, const TimeType & tm, const TimeType & ta) 
+           const HealthType & hp,const HealthType & shield, const HealthType & energy, const TimeType & tm, const TimeType & ta,const TimeType &tc)
     : _unitType             (unitType)
     , _range                (PlayerWeapon(&PlayerProperties::Get(playerID), unitType.groundWeapon()).GetMaxRange() + unitType.dimensionDown() + 5/* + Constants::Range_Addition*/)
     //, _range                (unitType.groundWeapon().maxRange() + Constants::Range_Addition)
     , _position             (pos)
     , _unitID               (unitID)
     , _playerID             (playerID)
-    , _currentHP            (hp)
+	, _currentHP            (hp)
+	, _currentshield        (shield)
     , _currentEnergy        (energy)
     , _timeCanMove          (tm)
     , _timeCanAttack        (ta)
@@ -62,7 +64,8 @@ Unit::Unit(const BWAPI::UnitType unitType, const IDType & playerID, const Positi
     , _unitID               (0)
     , _playerID             (playerID)
     , _currentHP            (maxHP())
-    , _currentEnergy        (unitType == BWAPI::UnitTypes::Terran_Medic ? Constants::Starting_Energy : 0)
+	, _currentshield        (maxshield())
+    , _currentEnergy        ((unitType == BWAPI::UnitTypes::Terran_Medic) ||(unitType == BWAPI::UnitTypes::Protoss_High_Templar) ? Constants::Starting_Energy : 0)
     , _timeCanMove          (0)
     , _timeCanAttack        (0)
     , _previousActionTime   (0)
@@ -194,6 +197,53 @@ const Position & Unit::position() const
 void Unit::takeAttack(const Unit & attacker)
 {
     PlayerWeapon    weapon(attacker.getWeapon(*this));
+    HealthType      damage (weapon.GetDamageBase());
+
+    if(_unitType.getRace()==BWAPI::Races::Protoss)
+    {
+
+    	// calculate the damage based on armor and damage types
+    	    damage = std::max((int)((damage-getArmor()) * weapon.GetDamageMultiplier(getSize())), 2);
+
+    	    // special case where units attack multiple times
+    	    if (attacker.type() == BWAPI::UnitTypes::Protoss_Zealot ||attacker.type() == BWAPI::UnitTypes::Terran_Firebat )
+    	    {
+    	        damage *= 2;
+    	    }
+    	    //std::cout << (int)attacker.player() << " " << damage << "\n";
+    	    if(_currentshield==0)
+    	    {
+    	    	updateCurrentHP(_currentHP-damage);
+    	    }
+    	    else if(_currentshield>0)
+    	    {
+    	    	updateCurrentShield(_currentshield-damage);
+
+    	    	if(_currentshield<0)
+    	    	{	int x;
+    	    		x=-_currentshield;
+    	    		updateCurrentShield(0);
+    	    		updateCurrentHP(_currentHP-x);
+
+    	    	}
+    	    }
+    }
+    else
+    {
+    	// calculate the damage based on armor and damage types
+    damage = std::max((int)((damage-getArmor()) * weapon.GetDamageMultiplier(getSize())), 2);
+
+    // special case where units attack multiple times
+    if (attacker.type() == BWAPI::UnitTypes::Protoss_Zealot|| attacker.type() == BWAPI::UnitTypes::Terran_Firebat)
+    {
+        damage *= 2;
+    }
+    //std::cout << (int)attacker.player() << " " << damage << "\n";
+
+    updateCurrentHP(_currentHP - damage);
+    }
+
+}
     HealthType      damage(weapon.GetDamageBase());
 
     // calculate the damage based on armor and damage types
@@ -393,6 +443,10 @@ void Unit::updateCurrentHP(const HealthType & newHP)
 { 
     _currentHP = std::min(maxHP(), newHP); 
 }
+void Unit::updateCurrentShield(const HealthType & newshield)
+{
+    _currentshield = std::min(maxshield(), newshield);
+}
 
 void Unit::updateAttackActionTime(const TimeType & newTime)
 { 
@@ -493,12 +547,20 @@ const Position & Unit::pos() const
 
  HealthType Unit::maxHP() const 
 { 
-    return (HealthType)_unitType.maxHitPoints() + (HealthType)_unitType.maxShields(); 
+    return (HealthType)_unitType.maxHitPoints() ;
 }
+ HealthType	Unit::maxshield()   const
+ {
+	 return (HealthType)_unitType.maxShields();
+ }
 
  HealthType Unit::currentHP() const 
 { 
     return (HealthType)_currentHP; 
+}
+ HealthType Unit::currentshield() const
+{
+    return (HealthType)_currentshield;
 }
 
  HealthType Unit::currentEnergy() const 
