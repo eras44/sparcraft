@@ -21,14 +21,14 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 
 	for (IDType u(0); u<moves.numUnits(); ++u)
 	{
-		bool foundUnitAction						(false);
+		bool foundUnitAction					(false);
 		size_t actionMoveIndex					(0);
 		double actionHighestDPS					(0);
 		size_t closestMoveIndex					(0);
 		unsigned long long closestMoveDist		(std::numeric_limits<unsigned long long>::max());
 		
 		const Unit & ourUnit				(state.getUnit(_playerID, u));
-		const Unit & closestUnit			(ourUnit.canHeal() ? state.getClosestOurUnit(_playerID, u) : state.getClosestEnemyUnit(_playerID, u));
+		const Unit & closestUnit			(ourUnit.canHeal() ? state.getClosestOurUnit(_playerID, u) : state.getClosestEnemyUnitcanattack(_playerID, u));
 
 		for (size_t m(0); m<moves.numMoves(u); ++m)
 		{
@@ -36,10 +36,11 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 				
 			if ((move.type() == UnitActionTypes::ATTACK) && (hpRemaining[move._moveIndex] > 0))
 			{
-				const Unit & target				(state.getUnit(state.getEnemy(move.player()), move._moveIndex));
-				double dpsHPValue =				(target.dpf() / hpRemaining[move._moveIndex]);
 
-				if (dpsHPValue > actionHighestDPS)
+				const Unit & target				(state.getUnit(state.getEnemy(move.player()), move._moveIndex));
+				double dpsHPValue =				(target.dpf(ourUnit) / hpRemaining[move._moveIndex]);
+
+				if (dpsHPValue > actionHighestDPS )
 				{
 					actionHighestDPS = dpsHPValue;
 					actionMoveIndex = m;
@@ -56,7 +57,7 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 			else if (move.type() == UnitActionTypes::HEAL)
 			{
 				const Unit & target				(state.getUnit(move.player(), move._moveIndex));
-				double dpsHPValue =				(target.dpf() / hpRemaining[move._moveIndex]);
+				double dpsHPValue =				(target.dpf(ourUnit) / hpRemaining[move._moveIndex]);
 
 				if (dpsHPValue > actionHighestDPS)
 				{
@@ -65,15 +66,38 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 					foundUnitAction = true;
 				}
 			}
+			else if(move.type()==UnitActionTypes ::CAST)
+			{
+				double casttemplar = 14;
+
+				if(casttemplar>actionHighestDPS)
+				{
+					actionHighestDPS = casttemplar;
+					actionMoveIndex = m;
+					foundUnitAction = true;
+
+				}
+			}
 			else if (move.type() == UnitActionTypes::RELOAD)
 			{
+
 				if (ourUnit.canAttackTarget(closestUnit, state.getTime()))
 				{
 					closestMoveIndex = m;
 					break;
 				}
 			}
-			else if (move.type() == UnitActionTypes::MOVE)
+			else if (move.type() == UnitActionTypes::LOAD)
+			{
+
+
+				actionMoveIndex = m;
+				foundUnitAction = true;
+
+
+
+			}
+			else if (move.type() == UnitActionTypes::MOVE  )
 			{
 				Position ourDest				(ourUnit.x() + Constants::Move_Dir[move._moveIndex][0], 
 												 ourUnit.y() + Constants::Move_Dir[move._moveIndex][1]);
@@ -83,8 +107,13 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 				{
 					closestMoveDist = dist;
 					closestMoveIndex = m;
+
 				}
+
 			}
+
+
+
 		}
 
 		size_t bestMoveIndex(foundUnitAction ? actionMoveIndex : closestMoveIndex);
@@ -94,6 +123,7 @@ void Player_NOKDPS::getMoves(const GameState & state, const MoveArray & moves, s
 		{
 			hpRemaining[theMove.index()] -= state.getUnit(_playerID, theMove.unit()).damage();
 		}
+
 			
 		moveVec.push_back(moves.getMove(u, bestMoveIndex));
 	}

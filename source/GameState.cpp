@@ -429,10 +429,66 @@ void GameState::generateMoves(MoveArray & moves, const IDType & playerIndex) con
 				moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::RELOAD, 0));
 			}
 		}
-		
-		// generate movement moves
-		if (unit.isMobile())
+		//
+		if(unit.isCaster()&& unit.canCastNow())
 		{
+
+			if(unit.type()==BWAPI::UnitTypes::Protoss_High_Templar)
+			{
+
+			for (IDType u(0); u<_numUnits[enemyPlayer]; ++u)
+						{
+							const Unit & enemy(getUnit(playerIndex, u));
+							if(unit.cancastPsionicStorm(enemy,_currentTime))
+							{
+								moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::CAST, u));
+
+							}
+
+
+						}
+			}
+
+		}
+		else
+		{
+			if (!(unit.type()==BWAPI::UnitTypes::Protoss_High_Templar))
+						{
+							moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::RELOAD, 0));
+						}
+		}
+		// generate movement load
+		/*if (unit.isMobile() && !unit.isloaded())
+		{
+
+
+
+			bool bunkerpresent=false;
+			for (IDType i(0); i<_numUnits[playerIndex]; ++i)
+						{
+
+
+							const Unit & ourUnit(getUnit(playerIndex, i));
+
+							if(ourUnit.isbunker())
+							{
+								bunkerpresent=true;
+								const Unit & uniclosest(this->getClosestEnemyUnitcanattack(playerIndex,unit.ID()));
+								PositionType x =uniclosest.getDistanceSqToUnit(unit,_currentTime);
+
+								if(unit.canloadbunker(ourUnit,_currentTime,x)&& bunkerpresent)
+								{
+
+									moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::LOAD,i));
+									printf("not cool dude");
+								}
+							}
+						}
+		}*/
+		// generate movement move
+		if (unit.isMobile()&& !unit.isloaded())
+		{
+
             // In order to not move when we could be shooting, we want to move for the minimum of:
             // 1) default move distance move time
             // 2) time until unit can attack, or if it can attack, the next cooldown
@@ -470,14 +526,27 @@ void GameState::generateMoves(MoveArray & moves, const IDType & playerIndex) con
                 // the final destination position of the unit
                 Position dest = unit.pos() + Position(moveDistance*dir.x(), moveDistance*dir.y());
 
-                // if that position on the map is walkable
-                if (isWalkable(dest) || (unit.type().isFlyer() && isFlyable(dest)))
+
+
+                if(unit.type().isFlyer() && isFlyable(dest))
                 {
-                	if(checkCollisions){
-                		if(_map.doesCollide(unit.type(),dest)){
+                	moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::MOVE, d, dest));
+                }
+                // if that position on the map is walkable
+                else if (isWalkable(dest)&& !unit.type().isFlyer())
+                {
+
+                	if(checkCollisions)
+                		{
+
+                		if(_map.doesCollide(unit.type(),dest))
+                		{
+
                 			//collision, so we won't add this move, but let's try walking less.
                 			dest = unit.pos() + Position(moveDistance/4*dir.x(), moveDistance/4*dir.y());
-                			if(_map.doesCollide(unit.type(),dest)){
+                			if(_map.doesCollide(unit.type(),dest))
+                			{
+
                 				continue;
                 			}
                 		}
@@ -485,22 +554,28 @@ void GameState::generateMoves(MoveArray & moves, const IDType & playerIndex) con
                 	}
                 	// add the move to the MoveArray
                 	moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::MOVE, d, dest));
+
                 }
+
 			}
 		}
+
 
 		// if no moves were generated for this unit, it must be issued a 'PASS' move
 		if (moves.numMoves(unitIndex) == 0)
 		{
 			moves.add(UnitAction(unitIndex, playerIndex, UnitActionTypes::PASS, 0));
 		}
-	}
+		}
 }
+
 bool GameState::isPowered(const SparCraft::Position &pos, const IDType & player) const{
+
 	const boost::optional<const Unit&> & closestSupplyOpt = getClosestOurPylonOpt(player, pos);
 	if(closestSupplyOpt.is_initialized()&&
 			(sqrt(closestSupplyOpt.get().getDistanceSqToPosition(pos,0))<
-					closestSupplyOpt.get().type().sightRange())){
+					closestSupplyOpt.get().type().sightRange()))
+	{
 		return true;
 	}
 	return false;
@@ -532,15 +607,182 @@ void GameState::performUnitAction(const UnitAction & move)
 
 	if (move._moveType == UnitActionTypes::ATTACK)
 	{
+
 		Unit & enemyUnit(getUnit(enemyPlayer,move._moveIndex));
         //Unit & enemyUnit(getUnitByID(enemyPlayer ,move._moveIndex));
-			
-		// attack the unit
-		ourUnit.attack(move, enemyUnit, _currentTime);
-			
+
+				ourUnit.attack(move, enemyUnit, _currentTime);
+
 		// enemy unit takes damage if it is alive
 		if (enemyUnit.isAlive())
-		{				
+		{
+
+			if((ourUnit.type().groundWeapon().explosionType()==BWAPI::ExplosionTypes::Radial_Splash))
+			    {
+
+				PositionType rangesplash=(ourUnit.type().groundWeapon().outerSplashRadius()*ourUnit.type().groundWeapon().outerSplashRadius());
+				PositionType rangesplashmedian=(ourUnit.type().groundWeapon().medianSplashRadius()*ourUnit.type().groundWeapon().medianSplashRadius());
+				PositionType rangesplashinner=(ourUnit.type().groundWeapon().innerSplashRadius()*ourUnit.type().groundWeapon().innerSplashRadius());
+
+				enemyUnit.takeAttack(ourUnit);
+
+				if (!enemyUnit.isAlive())
+				{
+				// if it died, remove it
+				_numUnits[enemyPlayer]--;
+				//update map
+				_map.removeUnit(enemyUnit);
+				}
+				if(ourUnit.type()==BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
+				{
+					for (IDType u(0);u<=_numUnits[enemyPlayer]; ++u)
+										{
+										Unit & unit(getUnit(enemyPlayer,u));
+										PositionType x =enemyUnit.getDistanceSqToUnit(unit,_currentTime);
+
+										if ((x>rangesplashmedian && x <= rangesplash)&& unit.isAlive()&&!unit.type().isFlyer())
+										{
+
+											unit.takeAttack(ourUnit,25);
+											if (!unit.isAlive())
+												{
+												// if it died, remove it
+												_numUnits[enemyPlayer]--;
+												//update map
+												_map.removeUnit(unit);
+												}
+										}
+										else if((x>rangesplashinner && x <= rangesplashmedian)&& unit.isAlive()&&!unit.type().isFlyer())
+										{
+
+											unit.takeAttack(ourUnit,50);
+											if (!unit.isAlive())
+																				{
+																					// if it died, remove it
+																					_numUnits[enemyPlayer]--;
+																					//update map
+																					_map.removeUnit(unit);
+																				}
+										}
+										else if((x<=rangesplashinner )&& unit.isAlive()&&!unit.type().isFlyer()&& x!=0)
+										{
+
+											unit.takeAttack(ourUnit,75);
+											if (!unit.isAlive())
+											{
+												// if it died, remove it
+												_numUnits[enemyPlayer]--;
+												//update map
+												_map.removeUnit(unit);
+											}
+										}
+										}
+					for (IDType u(0);u<=_numUnits[player]; ++u)
+															{
+															Unit & unit(getUnit(player,u));
+															PositionType x =enemyUnit.getDistanceSqToUnit(unit,_currentTime);
+
+															if ((x>rangesplashmedian && x <= rangesplash)&& unit.isAlive()&&!unit.type().isFlyer())
+															{
+
+																unit.takeAttack(ourUnit,75);
+																if (!unit.isAlive())
+																	{
+																	// if it died, remove it
+																	_numUnits[player]--;
+																	//update map
+																	_map.removeUnit(unit);
+																	}
+															}
+															else if((x>rangesplashinner && x <= rangesplashmedian)&& unit.isAlive()&&!unit.type().isFlyer())
+															{
+
+																unit.takeAttack(ourUnit,50);
+																if (!unit.isAlive())
+																									{
+																										// if it died, remove it
+																										_numUnits[player]--;
+																										//update map
+																										_map.removeUnit(unit);
+																									}
+															}
+															else if((x<=rangesplashinner )&& unit.isAlive()&&!unit.type().isFlyer()&& x!=0)
+															{
+
+																unit.takeAttack(ourUnit,75);
+																if (!unit.isAlive())
+																{
+																	// if it died, remove it
+																	_numUnits[player]--;
+																	//update map
+																	_map.removeUnit(unit);
+																}
+															}
+															}
+
+				}
+					}
+
+
+
+
+			else if (ourUnit.type().groundWeapon().explosionType()==BWAPI::ExplosionTypes::Enemy_Splash)
+							{
+								PositionType rangesplash=(ourUnit.type().groundWeapon().outerSplashRadius()*ourUnit.type().groundWeapon().outerSplashRadius());
+								PositionType rangesplashmedian=(ourUnit.type().groundWeapon().medianSplashRadius()*ourUnit.type().groundWeapon().medianSplashRadius());
+								PositionType rangesplashinner=(ourUnit.type().groundWeapon().innerSplashRadius()*ourUnit.type().groundWeapon().innerSplashRadius());
+
+				if(ourUnit.type()==BWAPI::UnitTypes::Protoss_Archon)
+				{
+					for (IDType u(0);u<=_numUnits[enemyPlayer]; ++u)
+						{
+													Unit & unit(getUnit(enemyPlayer,u));
+													PositionType x =enemyUnit.getDistanceSqToUnit(unit,_currentTime);
+
+													if ((x>rangesplashmedian && x <= rangesplash)&& unit.isAlive())
+													{
+
+														unit.takeAttack(ourUnit,25);
+														if (!unit.isAlive())
+															{
+															// if it died, remove it
+															_numUnits[enemyPlayer]--;
+															//update map
+															_map.removeUnit(unit);
+															}
+													}
+													else if((x>rangesplashinner && x <= rangesplashmedian)&& unit.isAlive())
+													{
+
+														unit.takeAttack(ourUnit,50);
+														if (!unit.isAlive())
+														{
+														// if it died, remove it
+														_numUnits[enemyPlayer]--;
+														//update map
+														_map.removeUnit(unit);
+														}
+													}
+													else if((x<=rangesplashinner )&& unit.isAlive()&& x!=0)
+													{
+
+														unit.takeAttack(ourUnit,75);
+														if (!unit.isAlive())
+														{
+															// if it died, remove it
+															_numUnits[enemyPlayer]--;
+															//update map
+															_map.removeUnit(unit);
+														}
+													}
+													}
+									}
+
+
+							}
+
+
+			else{
 			enemyUnit.takeAttack(ourUnit);
 
 			// check to see if enemy unit died
@@ -551,11 +793,39 @@ void GameState::performUnitAction(const UnitAction & move)
 				//update map
 				_map.removeUnit(enemyUnit);
 			}
-		}			
+			}
+			}
+
+
 	}
+	else if (move._moveType == UnitActionTypes::LOAD)
+			{
+
+			for (IDType i(0); i<_numUnits[player]; ++i)
+			{
+			const Unit & target(getUnit(player, i));
+
+			if(target.isbunker())
+			{
+
+
+				ourUnit.load(move,target, _currentTime);
+				_numMovements[player]++;
+			}
+			}
+
+
+			}
 	else if (move._moveType == UnitActionTypes::MOVE)
 	{
-		_numMovements[player]++;
+		if(ourUnit.type().isFlyer())
+		{
+			ourUnit.move(move, _currentTime);
+			_numMovements[player]++;
+		}
+		else
+		{
+			_numMovements[player]++;
 		if(checkCollisions){
 		//1) todo: check move against all fixed objects(buildings and not currently moving units) for collisions
 		//			- buildings is easy, it's on the Map class
@@ -582,6 +852,57 @@ void GameState::performUnitAction(const UnitAction & move)
 			ourOtherUnit.takeHeal(ourUnit);
 		}
 	}
+	else if (move._moveType == UnitActionTypes::CAST)
+		{
+			Unit & enemyUnit(getUnit(enemyPlayer,move._moveIndex));
+			PositionType splashstorm = 48*48;
+			HealthType	storm=75;
+			Position e =enemyUnit.pos();
+
+			ourUnit.updateCurrentEnergy(ourUnit.currentEnergy()-storm);
+			TimeType x = getTime();
+			_casttdurable.push_back(e);
+			_lastiteration.push_back(x);
+
+			spelldurable=true;
+			_iterationstorm.push_back(1);
+			for (IDType u(0);u<=_numUnits[enemyPlayer]; ++u)
+			{
+					Unit & unit(getUnit(enemyPlayer,u));
+					PositionType xx =enemyUnit.getDistanceSqToUnit(unit,_currentTime);
+
+					if(xx<=splashstorm )
+					{
+						unit.castPSionicStorm();
+
+						if (!unit.isAlive())
+									{
+													// if it died, remove it
+													_numUnits[enemyPlayer]--;
+													//update map
+													_map.removeUnit(unit);
+									}
+					}
+			}
+			for (IDType u(0);u<=_numUnits[player]; ++u)
+						{
+								Unit & unit(getUnit(player,u));
+								PositionType xx =enemyUnit.getDistanceSqToUnit(unit,_currentTime);
+								if(xx<=splashstorm )
+								{
+									unit.castPSionicStorm();
+									if (!unit.isAlive())
+												{
+																// if it died, remove it
+																_numUnits[enemyPlayer]--;
+																//update map
+																_map.removeUnit(unit);
+												}
+								}
+						}
+
+
+		}
 	else if (move._moveType == UnitActionTypes::RELOAD)
 	{
 		ourUnit.waitUntilAttack(move, _currentTime);
@@ -753,6 +1074,37 @@ const Unit& GameState::getClosestEnemyUnit(const IDType & player, const IDType &
 		PositionType distSq = myUnit.getDistanceSqToUnit(enemyUnit, _currentTime);
 
 		if ((distSq < minDist))// || ((distSq == minDist) && (enemyUnit.ID() < minUnitID)))
+		{
+			minDist = distSq;
+			minUnitInd = u;
+			minUnitID = enemyUnit.ID();
+		}
+		else if ((distSq == minDist) && (enemyUnit.ID() < minUnitID))
+		{
+			minDist = distSq;
+			minUnitInd = u;
+			minUnitID = enemyUnit.ID();
+		}
+	}
+	return getUnit(enemyPlayer, minUnitInd);
+}
+const Unit& GameState::getClosestEnemyUnitcanattack(const IDType & player, const IDType & unitIndex)const
+{
+	const IDType enemyPlayer(getEnemy(player));
+	const Unit & myUnit(getUnit(player,unitIndex));
+
+	PositionType minDist(1000000);
+	IDType minUnitInd(0);
+	IDType minUnitID(255);
+
+	Position currentPos = myUnit.currentPosition(_currentTime);
+
+	for (IDType u(0); u<_numUnits[enemyPlayer]; ++u)
+	{
+		const Unit & enemyUnit(getUnit(enemyPlayer, u));
+		PositionType distSq = myUnit.getDistanceSqToUnit(enemyUnit, _currentTime);
+
+		if ((distSq < minDist && myUnit.canAttackTarget(enemyUnit,_currentTime)))// || ((distSq == minDist) && (enemyUnit.ID() < minUnitID)))
 		{
 			minDist = distSq;
 			minUnitInd = u;

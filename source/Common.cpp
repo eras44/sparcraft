@@ -121,6 +121,7 @@ void printStackTrace(int skip, std::ostream &out, unsigned int max_frames)
 //                System::FatalError("Non-attacking buildings not currently supported: " + type.getName());
 //            }
 
+            if (type.isSpellcaster() && type!=BWAPI::UnitTypes::Terran_Medic && type!=BWAPI::UnitTypes::Protoss_High_Templar)
             if (type.isSpellcaster() && type!=BWAPI::UnitTypes::Terran_Medic)
             {
                 System::FatalError("Spell casting units not currently supported: " + type.getName());

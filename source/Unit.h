@@ -31,6 +31,7 @@ class Unit
 
 	TimeType            _timeCanMove;			// time the unit can next move
 	TimeType            _timeCanAttack;			// time the unit can next attack
+	TimeType			_timeCanCast;
 
 	UnitAction          _previousAction;		// the previous action that the unit performed
 	TimeType            _previousActionTime;	// the time the previous move was performed
@@ -38,6 +39,7 @@ class Unit
 
     mutable TimeType    _prevCurrentPosTime;
     mutable Position    _prevCurrentPos;
+    bool 				_isloaded;
 
 public:
 
@@ -55,25 +57,35 @@ public:
 	void                    updateMoveActionTime(const TimeType & newTime);
 	void                    attack(const UnitAction & move, const Unit & target, const TimeType & gameTime);
 	void                    heal(const UnitAction & move, const Unit & target, const TimeType & gameTime);
+	void                    load(const UnitAction & move, const Unit & target, const TimeType & gameTime);
 	void                    move(const UnitAction & move, const TimeType & gameTime) ;
 	void                    waitUntilAttack(const UnitAction & move, const TimeType & gameTime);
 	void                    pass(const UnitAction & move, const TimeType & gameTime);
 	void                    takeAttack(const Unit & attacker);
+	void 					takeAttack(const Unit & attacker,int x);
 	void                    takeHeal(const Unit & healer);
+	void 					castPSionicStorm();
 
 	// conditional functions
+	bool				cancastPsionicStorm(const Unit & unit, const TimeType & gameTime) const;
 	bool			    isMobile()                  const;
 	bool			    isOrganic()                 const;
 	bool              isAlive()                   const;
+	bool 				canCastNow() 				const;
 	bool			    canAttackNow()              const;
+	bool 				isBuilding() 				const;
 	bool			    canMoveNow()                const;
 	bool			    canHealNow()                const;
+	bool 				isbunker() 					const;
 	bool			    canKite()                   const;
+	bool 				cantargetair() 				const;
+	bool                isCaster()					const;
 	bool			    canHeal()                   const;
+	bool 				canloadbunker(const Unit &bunker,const TimeType & gametime,const PositionType & pos) 			const;
+	bool				isloaded() 					const;
 	bool              equalsID(const Unit & rhs)  const;
 	bool              canAttackTarget(const Unit & unit, const TimeType & gameTime) const;
 	bool              canHealTarget(const Unit & unit, const TimeType & gameTime) const;
-
     // id related
 	void                    setUnitID(const IDType & id);
 	 IDType		    ID()                        const;
@@ -93,6 +105,7 @@ public:
 
     // health and damage related functions
 	 HealthType        damage()                    const;
+	 HealthType        damage(const Unit &target)         const;
 	 HealthType        healAmount()                const;
 	 HealthType	    maxHP()                     const;
 	 HealthType		maxshield()                 const;
@@ -103,8 +116,10 @@ public:
 	 HealthType	    healCost()                  const;
      HealthType        getArmor()                  const;
 	 float			    dpf()                       const;
+	 float 				dpf( const Unit & target) 			const ;
 	void                    updateCurrentHP(const HealthType & newHP);
 	void					updateCurrentShield(const HealthType & newshield);
+	void					updateCurrentEnergy(const HealthType & newenergy);
     const BWAPI::UnitSizeType getSize()                 const;
     const BWAPI::WeaponType getWeapon(BWAPI::UnitType target) const;
      HealthType        getDamageTo(const Unit & unit) const;

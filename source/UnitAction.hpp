@@ -8,6 +8,7 @@ namespace SparCraft
 
 namespace UnitActionTypes
 {
+	enum {NONE, ATTACK, RELOAD, MOVE, PASS, HEAL,CAST,LOAD};
 	enum {NONE, ATTACK, RELOAD, MOVE, PASS, HEAL};
 };
 
@@ -83,6 +84,14 @@ public:
 		else if (_moveType == UnitActionTypes::HEAL)
 		{
 			return "HEAL";
+		}
+		else if (_moveType == UnitActionTypes::LOAD)
+		{
+			return "LOAD";
+		}
+		else if(_moveType == UnitActionTypes::CAST)
+		{
+			return"CAST";
 		}
 
 		return "NONE";

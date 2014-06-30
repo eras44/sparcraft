@@ -85,6 +85,7 @@ public:
     boost::optional<const Unit&> getUnitByIDOpt(const IDType & unitID) const;
 
     const Unit& getClosestEnemyUnit(const IDType & player, const IDType & unitIndex) const;
+    const Unit& getClosestEnemyUnitcanattack(const IDType & player, const IDType & unitIndex)const;
     const Unit& getClosestOurUnit(const IDType & player, const IDType & unitIndex) const;
 
     bool isPowered(const SparCraft::Position &pos, const IDType & player) const;

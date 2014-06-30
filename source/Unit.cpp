@@ -14,6 +14,7 @@ Unit::Unit()
     , _timeCanAttack        (0)
     , _previousActionTime   (0)
     , _prevCurrentPosTime   (0)
+	, _isloaded				(false)
 {
     
 }
@@ -32,8 +33,10 @@ Unit::Unit(const BWAPI::UnitType unitType, const Position & pos, const IDType & 
     , _currentEnergy        (energy)
     , _timeCanMove          (tm)
     , _timeCanAttack        (ta)
+	, _timeCanCast 			(tc)
     , _previousActionTime   (0)
     , _prevCurrentPosTime   (0)
+	, _isloaded				(false)
 {
     System::checkSupportedUnitType(unitType);
 }
@@ -68,10 +71,12 @@ Unit::Unit(const BWAPI::UnitType unitType, const IDType & playerID, const Positi
     , _currentEnergy        ((unitType == BWAPI::UnitTypes::Terran_Medic) ||(unitType == BWAPI::UnitTypes::Protoss_High_Templar) ? Constants::Starting_Energy : 0)
     , _timeCanMove          (0)
     , _timeCanAttack        (0)
+	, _timeCanCast			(0)
     , _previousActionTime   (0)
     , _previousPosition     (pos)
     , _prevCurrentPosTime   (0)
     , _prevCurrentPos       (pos)
+	, _isloaded				(false)
 {
     System::checkSupportedUnitType(unitType);
 }
@@ -130,10 +135,13 @@ bool Unit::canAttackTarget(const Unit & unit, const TimeType & gameTime) const
 {
     BWAPI::WeaponType weapon = unit.type().isFlyer() ? type().airWeapon() : type().groundWeapon();
 
-    if (weapon.damageAmount() == 0)
+    if (weapon.damageAmount() == 0 || unit.isloaded() )
     {
+
+
         return false;
     }
+
 
     // range of this unit attacking
     PositionType r = range();
@@ -244,6 +252,56 @@ void Unit::takeAttack(const Unit & attacker)
     }
 
 }
+void Unit::takeAttack(const Unit & attacker,int x)
+{
+    PlayerWeapon    weapon(attacker.getWeapon(*this));
+    HealthType      damage (weapon.GetDamageBase());
+
+    if(_unitType.getRace()==BWAPI::Races::Protoss)
+    {
+
+    	// calculate the damage based on armor and damage types
+    	    damage = std::max((int)((damage-getArmor()) * weapon.GetDamageMultiplier(getSize())), 2);
+    	    damage = (x*damage)/100;
+    	    // special case where units attack multiple times
+    	    if (attacker.type() == BWAPI::UnitTypes::Protoss_Zealot ||attacker.type() == BWAPI::UnitTypes::Terran_Firebat )
+    	    {
+    	        damage *= 2;
+    	    }
+    	    //std::cout << (int)attacker.player() << " " << damage << "\n";
+    	    if(_currentshield==0)
+    	    {
+    	    	updateCurrentHP(_currentHP-damage);
+    	    }
+    	    else if(_currentshield>0)
+    	    {
+    	    	updateCurrentShield(_currentshield-damage);
+
+    	    	if(_currentshield<0)
+    	    	{	int x;
+    	    		x=-_currentshield;
+    	    		updateCurrentShield(0);
+    	    		updateCurrentHP(_currentHP-x);
+
+    	    	}
+    	    }
+    }
+    else
+    {
+    	// calculate the damage based on armor and damage types
+    damage = std::max((int)((damage-getArmor()) * weapon.GetDamageMultiplier(getSize())), 2);
+
+    // special case where units attack multiple times
+    if (attacker.type() == BWAPI::UnitTypes::Protoss_Zealot|| attacker.type() == BWAPI::UnitTypes::Terran_Firebat)
+    {
+        damage *= 2;
+    }
+    //std::cout << (int)attacker.player() << " " << damage << "\n";
+
+    updateCurrentHP(_currentHP - damage);
+    }
+
+}
     HealthType      damage(weapon.GetDamageBase());
 
     // calculate the damage based on armor and damage types
@@ -264,6 +322,60 @@ void Unit::takeHeal(const Unit & healer)
     updateCurrentHP(_currentHP + healer.healAmount());
 }
 
+bool Unit::cancastPsionicStorm(const Unit & unit, const TimeType & gameTime) const
+{
+	for(std::set< BWAPI::TechType >::iterator	lit =_unitType.abilities().begin();
+											lit!=_unitType.abilities().end();lit++)
+									{
+										if ((_currentEnergy>=(*lit).energyUsed())&& (*lit).getWeapon()==BWAPI::WeaponTypes::Psionic_Storm)
+										{
+											PositionType x =(*lit).getWeapon().maxRange();
+											// return whether the target unit is in range
+											return (x*x ) >= getDistanceSqToUnit(unit, gameTime);
+										}
+										else
+											return false;
+									}
+
+
+
+
+
+
+
+}
+
+void Unit::castPSionicStorm()
+{
+	//damage per seconde by storm
+	HealthType      damage=14;
+	// mana required for cast one storm
+	//after damage mana is substracted to the High Templar
+
+	if(_unitType.getRace()==BWAPI::Races::Protoss)
+	{
+		if(_currentshield==0)
+		    	    {
+		    	    	updateCurrentHP(_currentHP-damage);
+		    	    }
+		    	    else if(_currentshield>0)
+		    	    {
+		    	    	updateCurrentShield(_currentshield-damage);
+
+		    	    	if(_currentshield<0)
+		    	    	{	int x;
+		    	    		x=-_currentshield;
+		    	    		updateCurrentShield(_currentshield=0);
+		    	    		updateCurrentHP(_currentHP-x);
+
+		    	    	}
+		    	    }
+	}
+	else
+		updateCurrentHP(_currentHP-damage);
+
+
+}
 // returns whether or not this unit is alive
 bool Unit::isAlive() const
 {
@@ -320,6 +432,28 @@ void Unit::heal(const UnitAction & move, const Unit & target, const TimeType & g
     setPreviousAction(move, gameTime);
 }
 
+void Unit::load(const UnitAction & move, const Unit & target, const TimeType & gameTime)
+{
+
+	_previousPosition = pos();
+	PositionType dist = target.pos().getDistance(pos());
+
+	// how long will this move take?
+		TimeType moveDuration = (TimeType)((double)dist / speed());
+        	_position.moveTo(target.pos());
+		// update the next time we can move, make sure a move always takes 1 time step
+           updateMoveActionTime(gameTime + std::max(moveDuration, 1));
+
+           // assume we need 4 frames to turn around after moving
+           updateAttackActionTime(std::max(nextAttackActionTime(), nextMoveActionTime()));
+
+        // update the position
+        //_position.addPosition(dist * dir.x(), dist * dir.y());
+
+
+        setPreviousAction(move, gameTime);
+        _isloaded =true;
+}
 // unit update for moving based on a given Move
 void Unit::move(const UnitAction & move, const TimeType & gameTime) 
 {
@@ -429,6 +563,15 @@ void Unit::setPreviousPosition(const TimeType & gameTime)
     (HealthType)_unitType.groundWeapon().damageAmount(); 
 }
 
+ HealthType Unit::damage( const Unit &target) const
+{
+if(!target.type().isFlyer())
+    return _unitType == BWAPI::UnitTypes::Protoss_Zealot ?
+        2 * (HealthType)_unitType.groundWeapon().damageAmount() :
+    (HealthType)_unitType.groundWeapon().damageAmount();
+else
+	return (HealthType)_unitType.airWeapon().damageAmount();
+}
  HealthType Unit::healAmount() const
 {
     return canHeal() ? 6 : 0;
@@ -446,6 +589,10 @@ void Unit::updateCurrentHP(const HealthType & newHP)
 void Unit::updateCurrentShield(const HealthType & newshield)
 {
     _currentshield = std::min(maxshield(), newshield);
+}
+void Unit::updateCurrentEnergy(const HealthType & newenergy)
+{
+	_currentEnergy = std::min(maxEnergy(), newenergy);
 }
 
 void Unit::updateAttackActionTime(const TimeType & newTime)
@@ -474,10 +621,31 @@ void Unit::setPreviousAction(const UnitAction & m, const TimeType & previousMove
     _previousAction = m;
     _previousActionTime = previousMoveTime; 
 }
+bool  Unit::isCaster()	const
+{
+	return _unitType.isSpellcaster();
+}
+bool Unit::canCastNow() const
+{
+	for(std::set< BWAPI::TechType >::iterator	lit =_unitType.abilities().begin();
+										lit!=_unitType.abilities().end();lit++)
+								{
+									if ((_currentEnergy>=(*lit).energyUsed()))
+									{
+										return true && _timeCanCast <=_timeCanMove;
+									}
+									else
+										return false;
+								}
 
+}
 bool Unit::canAttackNow() const
 { 
     return !canHeal() && _timeCanAttack <= _timeCanMove; 
+}
+bool Unit::isBuilding() const
+{
+	return _unitType.isBuilding();
 }
 
 bool Unit::canMoveNow() const
@@ -493,6 +661,10 @@ bool Unit::canHealNow() const
 bool Unit::canKite() const
 { 
     return _timeCanMove < _timeCanAttack; 
+}
+bool Unit::cantargetair() const
+{
+	return (_unitType.groundWeapon().targetsAir()||_unitType.airWeapon().targetsAir());
 }
 
 bool Unit::isMobile() const
@@ -510,6 +682,39 @@ bool Unit::isOrganic() const
     return _unitType.isOrganic(); 
 }
 
+bool Unit::isbunker() const
+{
+	return _unitType==BWAPI::UnitTypes::Terran_Bunker;
+}
+
+bool Unit::canloadbunker( const Unit & bunker,  const TimeType & gametime, const PositionType & pos) const
+{
+	if(_unitType == BWAPI::UnitTypes::Terran_Marine)
+	{
+		PositionType dist =this->getDistanceSqToUnit(bunker,gametime);
+
+		//printf(" distance unit bunker : %d , et distance unit enemy unit : %d \n",dist,pos);
+
+		if(dist < pos && dist < 1000)
+		{
+		return true ;
+		}
+
+		else
+		{
+			false;
+			printf("ok no problem");
+		}
+
+	}
+	else return false;
+	return false;
+
+}
+bool Unit ::isloaded() const
+{
+	return _isloaded;
+}
  IDType Unit::ID() const	
 { 
     return _unitID; 
@@ -581,6 +786,10 @@ const Position & Unit::pos() const
  float Unit::dpf() const 
 { 
     return (float)std::max(Constants::Min_Unit_DPF, (float)damage() / ((float)attackCooldown() + 1)); 
+}
+ float Unit::dpf(const Unit & target) const
+{
+    return (float)std::max(Constants::Min_Unit_DPF, (float)damage(target) / ((float)attackCooldown() + 1));
 }
 
  TimeType Unit::moveCooldown() const 
