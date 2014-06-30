@@ -34,24 +34,35 @@ class GameState
     size_t                                                          _maxUnits;
     TimeType                                                        _sameHPFrames;
 
+    //only for storm now
+    std::vector< Position >											_casttdurable;
+    std::vector <TimeType>											_lastiteration;
+    std::vector <int>												_iterationstorm;
+    TimeType														_lastframe;
+
+
     // checks to see if the unit array is full before adding a unit to the state
     bool              checkFull(const IDType & player)                                        const;
     bool              checkUniqueUnitIDs()                                                    const;
 
-    void                    performUnitAction(const UnitAction & theMove);
+    void              performUnitAction(const UnitAction & theMove);
 
 public:
 
     bool 					checkCollisions;
+    bool					spelldurable;
     GameState();
     GameState(const std::string & filename);
 
+
 	// misc functions
+
     void                    finishedMoving();
     void					beforeMoving();
     void                    updateGameTime();
     bool              playerDead(const IDType & player)                                       const;
     bool              isTerminal()                                                            const;
+
 
     // unit data functions
      size_t            numUnits(const IDType & player)                                         const;

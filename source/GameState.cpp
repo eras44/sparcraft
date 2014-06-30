@@ -33,6 +33,9 @@ GameState::GameState()
 	, _maxUnits(Constants::Max_Units)
     , _sameHPFrames(0)
 	, checkCollisions(false)
+	,spelldurable(false)
+	,_iterationstorm(0)
+	,_lastframe(0)
 {
 	_numUnits.fill(0);
 	_prevNumUnits.fill(0);
@@ -60,6 +63,245 @@ void GameState::beforeMoving()
 // call this whenever we are done with moves
 void GameState::finishedMoving()
 {
+
+
+	if(spelldurable)
+	    {
+			int size = _lastiteration.size();
+
+			for(int x=1;x<=size;x++)
+			{
+				if(x==1)
+				{
+								TimeType it=_lastiteration.front();
+						    	TimeType x =getTime();
+
+						    	Position z =_casttdurable.front();
+						    	PositionType splashstorm = 48*48;
+
+						    	if(it>=x-24) // for just one seconde
+						    	{
+						    		std::vector <TimeType>::iterator i;
+						    		i=_lastiteration.begin();
+						    		_iterationstorm.front()+=1;
+						    		_lastiteration.erase(i);
+						    		_lastiteration.insert(i,it+24);
+						    		for (IDType unitIndex(0); unitIndex < _numUnits[0]; ++unitIndex)
+						    			{
+						    				Unit & unit(getUnit(0,unitIndex));
+						    				PositionType xx=unit.getDistanceSqToPosition(z, _currentTime);
+
+						    				if(xx<=splashstorm)
+						    				{
+						    					unit.castPSionicStorm();
+						    					if (!unit.isAlive())
+						    					{
+						    						// if it died, remove it
+						    						_numUnits[0]--;
+						    						//update map
+						    						_map.removeUnit(unit);
+						    						}
+						    				}
+						    				for (IDType unitIndex(0); unitIndex < _numUnits[1]; ++unitIndex)
+						    					  {
+						    					    				Unit & unit(getUnit(1,unitIndex));
+						    					    				PositionType xx=unit.getDistanceSqToPosition(z, _currentTime);
+
+						    					    				if(xx<=splashstorm)
+						    					    				{
+						    					    					unit.castPSionicStorm();
+						    					    					if (!unit.isAlive())
+						    					    					{
+						    					    						// if it died, remove it
+						    					    							_numUnits[1]--;
+						    					    						//update map
+						    					    						_map.removeUnit(unit);
+						    					    						}
+						    					    				}
+
+
+						    					  	 }
+
+						    		}
+						    	}
+						  if(_iterationstorm.front()==8)
+						  {
+							  std::vector <TimeType>::iterator i;
+							  i=_lastiteration.begin();
+							  std::vector <Position>::iterator ii;
+							  ii=_casttdurable.begin();
+							 std::vector <int>::iterator iii;
+							  iii=_iterationstorm.begin();
+
+							  _lastiteration.erase(i);
+							  _casttdurable.erase(ii);
+							  _iterationstorm.erase(iii);
+
+							  if(size == 1)
+							  {
+								  spelldurable =false;
+							  }
+						  }
+
+				}
+				else
+				{
+					std::vector <TimeType>::iterator i;
+					i=_lastiteration.begin();
+					std::vector <Position>::iterator ii;
+					ii=_casttdurable.begin();
+					int y = x-1;
+					std::vector <int>::iterator iii;
+					iii=_iterationstorm.begin();
+					for(int y;y<=size;y++)
+					{
+						i++;
+						ii++;
+						iii++;
+					}
+
+					TimeType it=*i;
+					TimeType x =getTime();
+
+					Position z =*ii;
+					PositionType splashstorm = 48*48;
+
+					if(it>=x-24) // for just one seconde
+					{
+
+					(*iii)+=1;
+					_lastiteration.erase(i);
+					_lastiteration.insert(i,it+24);
+					for (IDType unitIndex(0); unitIndex < _numUnits[0]; ++unitIndex)
+											    			{
+											    				Unit & unit(getUnit(0,unitIndex));
+											    				PositionType xx=unit.getDistanceSqToPosition(z, _currentTime);
+
+											    				if(xx<=splashstorm)
+											    				{
+											    					unit.castPSionicStorm();
+											    					if (!unit.isAlive())
+											    					{
+											    						// if it died, remove it
+											    						_numUnits[0]--;
+											    						//update map
+											    						_map.removeUnit(unit);
+											    						}
+											    				}
+											    				for (IDType unitIndex(0); unitIndex < _numUnits[1]; ++unitIndex)
+											    					  {
+											    					    				Unit & unit(getUnit(1,unitIndex));
+											    					    				PositionType xx=unit.getDistanceSqToPosition(z, _currentTime);
+
+											    					    				if(xx<=splashstorm)
+											    					    				{
+											    					    					unit.castPSionicStorm();
+											    					    					if (!unit.isAlive())
+											    					    					{
+											    					    						// if it died, remove it
+											    					    							_numUnits[1]--;
+											    					    						//update map
+											    					    						_map.removeUnit(unit);
+											    					    						}
+											    					    				}
+
+
+											    					  	 }
+
+											    		}
+											    	}
+
+				}
+
+			}
+
+
+	    }
+if(_lastframe ==0)
+{
+	TimeType currenttime =getTime();
+	TimeType x =24;
+	if(_lastframe>=currenttime-x)
+	{
+		HealthType x=1;	//unit regen every seconde
+		for (IDType unitIndex(0); unitIndex < _numUnits[0]; ++unitIndex)
+		{
+			Unit & unit(getUnit(0,unitIndex));
+			if(unit.type().isSpellcaster()&& unit.currentEnergy()<unit.maxEnergy())
+			{
+				unit.updateCurrentEnergy(unit.currentEnergy()+x);
+			}
+			if(unit.type().getRace()==BWAPI::Races::Zerg&&unit.currentHP()<unit.maxHP())
+			{
+				unit.updateCurrentHP(unit.currentHP()+x);
+			}
+			else if(unit.type().getRace()==BWAPI::Races::Protoss&&unit.currentshield()<unit.maxshield())
+			{
+				unit.updateCurrentShield(unit.currentshield()+x);
+			}
+		}
+		for (IDType unitIndex(0); unitIndex < _numUnits[1]; ++unitIndex)
+				    		{
+				    			Unit & unit(getUnit(1,unitIndex));
+				    			if(unit.type().isSpellcaster()&& unit.currentEnergy()<unit.maxEnergy())
+				    			{
+				    				unit.updateCurrentEnergy(unit.currentEnergy()+x);
+				    			}
+				    			if(unit.type().getRace()==BWAPI::Races::Zerg&&unit.currentHP()<unit.maxHP())
+				    			{
+				    				unit.updateCurrentHP(unit.currentHP()+x);
+				    			}
+				    			else if(unit.type().getRace()==BWAPI::Races::Protoss&&unit.currentshield()<unit.maxshield())
+				    			{
+				    				unit.updateCurrentShield(unit.currentshield()+x);
+				    			}
+				    		}
+		_lastframe=_lastframe+24;
+	}
+}
+else
+{
+	TimeType currenttime =getTime();
+	TimeType x = 24;
+	if(_lastframe>=currenttime-x)
+		{
+			HealthType x=1;	//unit regen every seconde
+			for (IDType unitIndex(0); unitIndex < _numUnits[0]; ++unitIndex)
+			{
+				Unit & unit(getUnit(0,unitIndex));
+				if(unit.type().isSpellcaster()&& unit.currentEnergy()<unit.maxEnergy())
+				{
+					unit.updateCurrentEnergy(unit.currentEnergy()+x);
+				}
+				if(unit.type().getRace()==BWAPI::Races::Zerg&&unit.currentHP()<unit.maxHP())
+				{
+					unit.updateCurrentHP(unit.currentHP()+x);
+				}
+				else if(unit.type().getRace()==BWAPI::Races::Protoss&&unit.currentshield()<unit.maxshield())
+				{
+					unit.updateCurrentShield(unit.currentshield()+x);
+				}
+			}
+			for (IDType unitIndex(0); unitIndex < _numUnits[1]; ++unitIndex)
+					    		{
+					    			Unit & unit(getUnit(1,unitIndex));
+					    			if(unit.type().isSpellcaster()&& unit.currentEnergy()<unit.maxEnergy())
+					    			{
+					    				unit.updateCurrentEnergy(unit.currentEnergy()+x);
+					    			}
+					    			if(unit.type().getRace()==BWAPI::Races::Zerg&&unit.currentHP()<unit.maxHP())
+					    			{
+					    				unit.updateCurrentHP(unit.currentHP()+x);
+					    			}
+					    			else if(unit.type().getRace()==BWAPI::Races::Protoss&&unit.currentshield()<unit.maxshield())
+					    			{
+					    				unit.updateCurrentShield(unit.currentshield()+x);
+					    			}
+					    		}
+			_lastframe=_lastframe+24;
+		}
+
+}
 	// sort the unit vector based on time left to move
 	sortUnits();
 
